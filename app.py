@@ -1,5 +1,6 @@
 import streamlit as st
 
+from ai_generator import generate_questions
 from questions import get_questions
 from scoring import calculate_score
 
@@ -14,11 +15,18 @@ if "answers" not in st.session_state:
     st.session_state.answers = {}
 if "selected_questions" not in st.session_state:
     st.session_state.selected_questions = []
+if "generated_questions" not in st.session_state:
+    st.session_state.generated_questions = []
 
 st.title("AI Interview Setup")
 st.write("Configure your interview and click **Start**.")
 
 name = st.text_input("Name", placeholder="Enter your name")
+
+topic = st.text_input(
+    "Enter topic for AI-generated questions",
+    placeholder="e.g. Python concurrency",
+)
 
 interview_type = st.selectbox(
     "Interview Type",
@@ -32,6 +40,22 @@ difficulty = st.selectbox(
     index=1,
 )
 
+if st.button("Generate Questions"):
+    if not topic.strip():
+        st.warning("Please enter a topic before generating questions.")
+    else:
+        with st.spinner("Generating interview questions with Gemini..."):
+            try:
+                st.session_state.generated_questions = generate_questions(topic, difficulty)
+                st.success("AI questions generated successfully.")
+            except Exception as exc:
+                st.session_state.generated_questions = []
+                st.warning(
+                    "AI question generation failed. "
+                    "The app will use default questions instead. "
+                    f"Details: {exc}"
+                )
+
 start_clicked = st.button("Start", type="primary")
 
 if start_clicked:
@@ -41,7 +65,12 @@ if start_clicked:
         st.session_state.interview_started = True
         st.session_state.current_question_index = 0
         st.session_state.answers = {}
-        st.session_state.selected_questions = get_questions(interview_type, difficulty)
+
+        if st.session_state.generated_questions:
+            st.session_state.selected_questions = st.session_state.generated_questions
+        else:
+            st.session_state.selected_questions = get_questions(interview_type, difficulty)
+
         st.session_state.candidate_name = name.strip()
         st.session_state.interview_type = interview_type
         st.session_state.difficulty = difficulty
