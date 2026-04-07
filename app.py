@@ -3,6 +3,7 @@ import streamlit as st
 from ai_generator import generate_questions
 from questions import get_questions
 from scoring import calculate_score
+from voice_input import record_voice
 
 
 st.set_page_config(page_title="AI Interview App", page_icon="🎤", layout="centered")
@@ -150,9 +151,23 @@ if st.session_state.interview_started:
             answer_key = f"answer_{current_idx}"
             saved_answer = st.session_state.answers.get(current_idx, "")
 
+            if answer_key not in st.session_state:
+                st.session_state[answer_key] = saved_answer
+
+            if st.button("🎤 Speak Answer", use_container_width=True):
+                with st.spinner("Listening..."):
+                    recognized_text, voice_error = record_voice()
+
+                if voice_error:
+                    st.warning(voice_error)
+                else:
+                    st.session_state[answer_key] = recognized_text
+                    st.session_state.answers[current_idx] = recognized_text
+                    st.success("Voice captured successfully.")
+                    st.markdown(f"**Recognized text:** {recognized_text}")
+
             answer = st.text_area(
                 "Your Answer",
-                value=saved_answer,
                 height=180,
                 key=answer_key,
                 placeholder="Type your answer here...",
