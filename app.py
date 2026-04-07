@@ -1,6 +1,7 @@
 import streamlit as st
 
 from ai_generator import generate_questions
+from face_detection import detect_face_from_webcam
 from questions import get_questions
 from scoring import calculate_score
 from voice_input import record_voice
@@ -50,6 +51,11 @@ st.markdown(
     "<div class='app-subtitle'>Practice smarter with structured mock interviews.</div>",
     unsafe_allow_html=True,
 )
+
+st.markdown("### Camera Check")
+if st.button("Start Camera", use_container_width=True):
+    is_face_detected = detect_face_from_webcam()
+    st.write(is_face_detected)
 
 with st.sidebar:
     st.markdown("## Interview Setup")
