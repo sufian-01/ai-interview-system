@@ -1,7 +1,18 @@
 import streamlit as st
 
+from questions import get_questions
+
 
 st.set_page_config(page_title="AI Interview App", page_icon="🎤", layout="centered")
+
+if "interview_started" not in st.session_state:
+    st.session_state.interview_started = False
+if "current_question_index" not in st.session_state:
+    st.session_state.current_question_index = 0
+if "answers" not in st.session_state:
+    st.session_state.answers = {}
+if "selected_questions" not in st.session_state:
+    st.session_state.selected_questions = []
 
 st.title("AI Interview Setup")
 st.write("Configure your interview and click **Start**.")
@@ -26,11 +37,67 @@ if start_clicked:
     if not name.strip():
         st.warning("Please enter your name before starting.")
     else:
-        st.success("Interview started!")
-        st.markdown(
-            f"""
-            **Candidate:** {name.strip()}  
-            **Interview Type:** {interview_type}  
-            **Difficulty:** {difficulty}
-            """
-        )
+        st.session_state.interview_started = True
+        st.session_state.current_question_index = 0
+        st.session_state.answers = {}
+        st.session_state.selected_questions = get_questions(interview_type, difficulty)
+        st.session_state.candidate_name = name.strip()
+        st.session_state.interview_type = interview_type
+        st.session_state.difficulty = difficulty
+
+if st.session_state.interview_started:
+    st.success("Interview started!")
+    st.markdown(
+        f"""
+        **Candidate:** {st.session_state.candidate_name}  
+        **Interview Type:** {st.session_state.interview_type}  
+        **Difficulty:** {st.session_state.difficulty}
+        """
+    )
+
+    st.divider()
+
+    total_questions = len(st.session_state.selected_questions)
+    current_idx = st.session_state.current_question_index
+
+    if current_idx < total_questions:
+        progress = (current_idx + 1) / total_questions
+        st.progress(progress)
+
+        left, center, right = st.columns([1, 3, 1])
+        with center:
+            st.subheader("Interview Session")
+            st.caption(f"Question {current_idx + 1} of {total_questions}")
+            st.markdown("---")
+
+            current_question = st.session_state.selected_questions[current_idx]
+            st.markdown(f"### {current_question}")
+
+            answer_key = f"answer_{current_idx}"
+            saved_answer = st.session_state.answers.get(current_idx, "")
+
+            answer = st.text_area(
+                "Your Answer",
+                value=saved_answer,
+                height=180,
+                key=answer_key,
+                placeholder="Type your answer here...",
+            )
+
+            st.write("")
+
+            if st.button("Next", type="primary"):
+                st.session_state.answers[current_idx] = answer
+                st.session_state.current_question_index += 1
+                st.rerun()
+    else:
+        st.progress(1.0)
+        st.subheader("Interview Complete")
+        st.write("Great work! You answered all questions.")
+        st.markdown("---")
+
+        for idx, question in enumerate(st.session_state.selected_questions, start=1):
+            st.markdown(f"**Q{idx}. {question}**")
+            response = st.session_state.answers.get(idx - 1, "No answer provided.")
+            st.write(response)
+            st.markdown("---")
