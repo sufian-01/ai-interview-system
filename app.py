@@ -1,6 +1,7 @@
 import streamlit as st
 
 from questions import get_questions
+from scoring import calculate_score
 
 
 st.set_page_config(page_title="AI Interview App", page_icon="🎤", layout="centered")
@@ -96,6 +97,31 @@ if st.session_state.interview_started:
         st.write("Great work! You answered all questions.")
         st.markdown("---")
 
+        ordered_answers = [
+            st.session_state.answers.get(idx, "")
+            for idx in range(len(st.session_state.selected_questions))
+        ]
+        final_score, feedback = calculate_score(ordered_answers)
+
+        st.subheader("Interview Result")
+        st.markdown(
+            f"<h1 style='font-size:56px; margin-bottom:0;'>⭐ {final_score}/10</h1>",
+            unsafe_allow_html=True,
+        )
+
+        if final_score >= 7:
+            st.success("Strong overall performance. Keep it up!")
+        else:
+            st.warning("You can improve with more depth and positive framing.")
+
+        st.markdown("### Feedback")
+        for message in feedback:
+            if "Excellent response" in message:
+                st.success(message)
+            else:
+                st.warning(message)
+
+        st.markdown("### All Answers Summary")
         for idx, question in enumerate(st.session_state.selected_questions, start=1):
             st.markdown(f"**Q{idx}. {question}**")
             response = st.session_state.answers.get(idx - 1, "No answer provided.")
