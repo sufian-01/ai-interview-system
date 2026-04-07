@@ -4,6 +4,7 @@ from ai_generator import generate_questions
 from questions import get_questions
 from scoring import calculate_score
 from voice_input import record_voice
+from voice_output import speak
 
 
 st.set_page_config(page_title="AI Interview App", page_icon="🎤", layout="centered")
@@ -40,6 +41,15 @@ st.markdown(
         background: #f8fafc;
         margin: 0.5rem 0 1rem 0;
     }
+    .question-card {
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    background: #1e293b;   /* dark background */
+    color: white;          /* text visible */
+    margin: 0.5rem 0 1rem 0;
+    font-size: 16px;
+}
     </style>
     """,
     unsafe_allow_html=True,
@@ -143,6 +153,8 @@ if st.session_state.interview_started:
             st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
             current_question = st.session_state.selected_questions[current_idx]
+            if st.button("🔊 Speak Question", use_container_width=True):
+                 speak(current_question)
             st.markdown(
                 f"<div class='question-card'><strong>Question:</strong><br>{current_question}</div>",
                 unsafe_allow_html=True,
