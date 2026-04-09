@@ -10,6 +10,85 @@ from voice_output import speak
 
 st.set_page_config(page_title="AI Interview App", page_icon="🎤", layout="centered")
 
+
+def _build_performance_insights(answers):
+    """Create answer-level scores plus strengths/weaknesses from answer text."""
+    answer_metrics = []
+    strengths = set()
+    weaknesses = set()
+
+    for index, answer in enumerate(answers, start=1):
+        cleaned_answer = (answer or "").strip()
+        word_count = len(cleaned_answer.split())
+        lower_answer = cleaned_answer.lower()
+
+        score = 0
+        if cleaned_answer:
+            score += 2
+            strengths.add("Responded to all interview questions.")
+        else:
+            weaknesses.add("Some answers were empty or too short.")
+
+        if word_count > 30:
+            score += 2
+            strengths.add("Provided good detail in several responses.")
+        else:
+            weaknesses.add("Add more depth to improve answer quality.")
+
+        if word_count > 60:
+            score += 2
+            strengths.add("Explained ideas clearly with extended context.")
+        else:
+            weaknesses.add("Use richer examples and impact statements.")
+
+        if any(keyword in lower_answer for keyword in ("experience", "project", "skills")):
+            score += 2
+            strengths.add("Connected responses to practical experience.")
+        else:
+            weaknesses.add("Reference concrete experience, projects, and skills.")
+
+        positive_words = ("confident", "improved", "achieved", "led", "success")
+        if any(word in lower_answer for word in positive_words):
+            score += 2
+            strengths.add("Used positive and outcome-focused wording.")
+        else:
+            weaknesses.add("Use more confident, measurable language.")
+
+        answer_metrics.append({"Answer": f"Q{index}", "Score": score})
+
+    if not strengths:
+        strengths.add("Completed the full interview flow.")
+    if not weaknesses:
+        weaknesses.add("Continue practicing to keep performance consistent.")
+
+    return answer_metrics, sorted(strengths), sorted(weaknesses)
+
+
+def _build_report_text(candidate_name, interview_type, difficulty, final_score, feedback, strengths, weaknesses):
+    """Return printable text report."""
+    lines = [
+        "FINAL INTERVIEW REPORT",
+        "======================",
+        f"Candidate: {candidate_name}",
+        f"Interview Type: {interview_type}",
+        f"Difficulty: {difficulty}",
+        f"Total Score: {final_score}/10",
+        "",
+        "Answer-wise Feedback:",
+    ]
+    lines.extend([f"- {item}" for item in feedback])
+    lines.extend(
+        [
+            "",
+            "Strengths:",
+            *[f"- {item}" for item in strengths],
+            "",
+            "Weaknesses:",
+            *[f"- {item}" for item in weaknesses],
+        ]
+    )
+    return "\n".join(lines)
+
 if "interview_started" not in st.session_state:
     st.session_state.interview_started = False
 if "current_question_index" not in st.session_state:
@@ -42,6 +121,7 @@ st.markdown(
         background: #f8fafc;
         margin: 0.5rem 0 1rem 0;
     }
+
     .question-card {
     border: 1px solid #334155;
     border-radius: 12px;
@@ -50,8 +130,17 @@ st.markdown(
     color: white;          /* text visible */
     margin: 0.5rem 0 1rem 0;
     font-size: 16px;
-}
-    </style>
+    }
+
+
+    .report-card {
+        border: 1px solid #dbeafe;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        background: #f8fbff;
+        margin: 0.5rem 0 1rem 0;
+    } 
+ </style>
     """,
     unsafe_allow_html=True,
 )
@@ -222,10 +311,11 @@ if st.session_state.interview_started:
                 for idx in range(len(st.session_state.selected_questions))
             ]
             final_score, feedback = calculate_score(ordered_answers)
+            answer_metrics, strengths, weaknesses = _build_performance_insights(ordered_answers)
 
             score_color = "#16a34a" if final_score >= 7 else "#dc2626"
             st.markdown(
-                "<h3 style='text-align:center; margin-bottom:0.3rem;'>Interview Result</h3>",
+                "<h3 style='text-align:center; margin-bottom:0.3rem;'>Final Interview Report</h3>",
                 unsafe_allow_html=True,
             )
             st.markdown(
@@ -240,9 +330,41 @@ if st.session_state.interview_started:
                 st.error("You can improve with more depth and positive framing.")
 
             st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-            st.markdown("### Feedback")
+            st.markdown("### Answer-wise Feedback")
             feedback_items = "\n".join([f"- {message}" for message in feedback])
             st.markdown(feedback_items)
+
+            st.markdown("<div class='report-card'>", unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### Strengths")
+                for item in strengths:
+                    st.markdown(f"- {item}")
+            with col2:
+                st.markdown("#### Weaknesses")
+                for item in weaknesses:
+                    st.markdown(f"- {item}")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("### Performance Chart")
+            st.bar_chart(answer_metrics, x="Answer", y="Score", color="#2563eb")
+
+            report_text = _build_report_text(
+                st.session_state.candidate_name,
+                st.session_state.interview_type,
+                st.session_state.difficulty,
+                final_score,
+                feedback,
+                strengths,
+                weaknesses,
+            )
+            st.download_button(
+                "Download Report (.txt)",
+                data=report_text,
+                file_name=f"{st.session_state.candidate_name.lower().replace(' ', '_')}_interview_report.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             st.markdown("### All Answers Summary")
