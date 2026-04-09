@@ -99,8 +99,6 @@ if "selected_questions" not in st.session_state:
     st.session_state.selected_questions = []
 if "generated_questions" not in st.session_state:
     st.session_state.generated_questions = []
-if "camera_active" not in st.session_state:
-    st.session_state.camera_active = False
 
 st.markdown(
     """
@@ -156,7 +154,6 @@ st.markdown(
 st.markdown("### Camera Check")
 if st.button("Start Camera", use_container_width=True):
     is_face_detected = detect_face_from_webcam()
-    st.session_state.camera_active = True
     st.write(is_face_detected)
 
 with st.sidebar:
@@ -197,17 +194,10 @@ with st.sidebar:
                     )
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-    start_clicked = st.button(
-        "Start Interview",
-        type="primary",
-        use_container_width=True,
-        disabled=not st.session_state.camera_active,
-    )
+    start_clicked = st.button("Start Interview", type="primary", use_container_width=True)
 
 if start_clicked:
-    if not st.session_state.camera_active:
-        st.warning("Please enable camera before starting interview.")
-    elif not name.strip():
+    if not name.strip():
         st.warning("Please enter your name before starting.")
     else:
         st.session_state.interview_started = True
