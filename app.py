@@ -10,6 +10,9 @@ from voice_output import speak
 
 st.set_page_config(page_title="AI Interview App", page_icon="🎤", layout="centered")
 
+if "camera_active" not in st.session_state:
+    st.session_state.camera_active = False
+
 
 def _build_performance_insights(answers):
     """Create answer-level scores plus strengths/weaknesses from answer text."""
@@ -99,6 +102,9 @@ if "selected_questions" not in st.session_state:
     st.session_state.selected_questions = []
 if "generated_questions" not in st.session_state:
     st.session_state.generated_questions = []
+    
+if "camera_active" not in st.session_state:
+    st.session_state.camera_active = False
 
 st.markdown(
     """
@@ -188,9 +194,20 @@ st.markdown(
 )
 
 st.markdown("### Camera Check")
+
+# session state init
+if "camera_active" not in st.session_state:
+    st.session_state.camera_active = False
+
 if st.button("Start Camera", use_container_width=True):
     is_face_detected = detect_face_from_webcam()
-    st.write(is_face_detected)
+
+    if is_face_detected:
+        st.success("✅ Face detected. Camera activated.")
+        st.session_state.camera_active = True
+    else:
+        st.error("❌ Face not detected. Try again.")
+        st.session_state.camera_active = False
 
 with st.sidebar:
     st.markdown("## Interview Setup")
