@@ -116,11 +116,47 @@ st.markdown(
         margin-bottom: 1.2rem;
     }
     .question-card {
-        border: 1px solid #e5e7eb;
+        max-width: 760px;
+        margin: 0.5rem auto 1.2rem auto;
+        border: 1px solid #334155;
         border-radius: 12px;
-        padding: 1rem 1.2rem;
+        padding: 20px;
+        background: #1e293b;
+        box-shadow: 0 16px 30px rgba(15, 23, 42, 0.35);
+    }
+    .question-card-label {
+        color: #cbd5e1;
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+    .question-card-text {
+        color: #f8fafc;
+        font-size: 1.24rem;
+        line-height: 1.8;
+        font-weight: 500;
+        margin-top: 0.7rem;
+    }
+    div[data-testid="stTextArea"] {
+        margin-top: 0.8rem;
+        margin-bottom: 1rem;
+    }
+    div[data-testid="stTextArea"] label p {
+        font-size: 1.03rem;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+    }
+    div[data-testid="stTextArea"] textarea {
+        border-radius: 12px;
+        padding: 14px 16px;
+        border: 1px solid #cbd5e1;
         background: #f8fafc;
-        margin: 0.5rem 0 1rem 0;
+        line-height: 1.65;
+        font-size: 1.05rem;
+    }
+    div[data-testid="stTextArea"] textarea:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 0.18rem rgba(37, 99, 235, 0.2);
     }
     .report-card {
         border: 1px solid #dbeafe;
@@ -246,7 +282,12 @@ if st.session_state.interview_started:
 
             current_question = st.session_state.selected_questions[current_idx]
             st.markdown(
-                f"<div class='question-card'><strong>Question:</strong><br>{current_question}</div>",
+                f"""
+                <div class='question-card'>
+                    <div class='question-card-label'>Question</div>
+                    <div class='question-card-text'>{current_question}</div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
