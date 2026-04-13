@@ -4,3 +4,4 @@ python-dotenv
 
 SpeechRecognition
 opencv-python
+fpdf2
