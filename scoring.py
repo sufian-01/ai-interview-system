@@ -15,6 +15,12 @@ KEYWORD_GROUPS = {
 CONFIDENCE_TERMS = ("led", "delivered", "improved", "achieved", "built", "owned")
 
 
+def clean_text(text):
+    if not text:
+        return ""
+    return str(text).encode("latin-1", "ignore").decode("latin-1")
+
+
 def _split_sentences(text: str):
     return [part.strip() for part in re.split(r"[.!?]+", text) if part.strip()]
 
@@ -189,51 +195,55 @@ def calculate_score(answers):
     ]
     return report["final_score"], feedback_messages
 
-
 def generate_pdf_report(report_data, interview_type, difficulty):
-    """Create a PDF bytes object for download."""
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=12)
     pdf.add_page()
+
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "AI Interview Report", ln=True)
+    pdf.cell(0, 10, clean_text("AI Interview Report"), ln=True)
 
     pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Candidate: {report_data['candidate_name']}", ln=True)
-    pdf.cell(0, 8, f"Interview Type: {interview_type}", ln=True)
-    pdf.cell(0, 8, f"Difficulty: {difficulty}", ln=True)
-    pdf.cell(0, 8, f"Final Score: {report_data['final_score']}/10", ln=True)
-    pdf.multi_cell(0, 8, f"Recommendation: {report_data['recommendation']}")
+    pdf.cell(0, 8, clean_text(f"Candidate: {report_data['candidate_name']}"), ln=True)
+    pdf.cell(0, 8, clean_text(f"Interview Type: {interview_type}"), ln=True)
+    pdf.cell(0, 8, clean_text(f"Difficulty: {difficulty}"), ln=True)
+    pdf.cell(0, 8, clean_text(f"Final Score: {report_data['final_score']}/10"), ln=True)
+    pdf.multi_cell(0, 8, clean_text(f"Recommendation: {report_data['recommendation']}"))
+
     pdf.ln(2)
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Summary", ln=True)
+    pdf.cell(0, 8, clean_text("Summary"), ln=True)
+
     pdf.set_font("Helvetica", "", 11)
-    pdf.multi_cell(0, 8, f"Skipped Questions: {report_data['skipped_count']}")
+    pdf.multi_cell(0, 8, clean_text(f"Skipped Questions: {report_data['skipped_count']}"))
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Strengths", ln=True)
+    pdf.cell(0, 8, clean_text("Strengths"), ln=True)
+
     pdf.set_font("Helvetica", "", 11)
     for strength in report_data["strengths"]:
-        pdf.multi_cell(0, 7, f"- {strength}")
+        pdf.multi_cell(0, 7, clean_text(f"- {strength}"))
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Weaknesses", ln=True)
+    pdf.cell(0, 8, clean_text("Weaknesses"), ln=True)
+
     pdf.set_font("Helvetica", "", 11)
     for weakness in report_data["weaknesses"]:
-        pdf.multi_cell(0, 7, f"- {weakness}")
+        pdf.multi_cell(0, 7, clean_text(f"- {weakness}"))
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 9, "Answer-wise Feedback", ln=True)
+    pdf.cell(0, 9, clean_text("Answer-wise Feedback"), ln=True)
+
     pdf.set_font("Helvetica", "", 11)
     for item in report_data["answer_reports"]:
-        pdf.multi_cell(0, 7, f"Q{item['index']}: {item['question']}")
-        pdf.multi_cell(0, 7, f"Answer: {item['answer'] or 'No answer provided'}")
-        pdf.multi_cell(0, 7, f"Score: {item['score']}/10 | Status: {item['status']}")
-        pdf.multi_cell(0, 7, f"Tip: {item['feedback_tip']}")
+        pdf.multi_cell(0, 7, clean_text(f"Q{item['index']}: {item['question']}"))
+        pdf.multi_cell(0, 7, clean_text(f"Answer: {item['answer'] or 'No answer provided'}"))
+        pdf.multi_cell(0, 7, clean_text(f"Score: {item['score']}/10 | Status: {item['status']}"))
+        pdf.multi_cell(0, 7, clean_text(f"Tip: {item['feedback_tip']}"))
         pdf.ln(2)
 
-    buffer = BytesIO()
-    buffer.write(pdf.output(dest="S").encode("latin-1", "replace"))
-    buffer.seek(0)
-    return buffer.getvalue()
+    # ✅ IMPORTANT: loop ke baad hona chahiye
+    return pdf.output(dest="S").encode("latin-1", "ignore")
+
+

@@ -3,31 +3,33 @@
 from __future__ import annotations
 
 import speech_recognition as sr
+import sounddevice as sd
+from scipy.io.wavfile import write
+import tempfile
 
 
 def record_voice() -> tuple[str | None, str | None]:
-    """Record voice from the microphone and convert it to text.
-
-    Returns:
-        tuple[str | None, str | None]:
-            - recognized text (or None)
-            - error message (or None)
-    """
     recognizer = sr.Recognizer()
+    fs = 44100
+    duration = 5
 
     try:
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=30)
-    except sr.WaitTimeoutError:
-        return None, "No voice detected. Please try again and speak clearly."
-    except OSError:
-        return None, "Microphone is not available. Please check your audio device settings."
+        recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
+        sd.wait()
+
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        write(temp_file.name, fs, recording)
+
+    except Exception:
+        return None, "Mic not working"
 
     try:
-        text = recognizer.recognize_google(audio)
-        return text, None
+        with sr.AudioFile(temp_file.name) as source:
+            audio = recognizer.record(source)
+            text = recognizer.recognize_google(audio)
+            return text, None
+
     except sr.UnknownValueError:
-        return None, "Could not understand audio due to noise or unclear speech."
-    except sr.RequestError as exc:
-        return None, f"Speech recognition service is unavailable right now: {exc}"
+        return None, "Could not understand audio"
+    except sr.RequestError:
+        return None, "Speech service error"

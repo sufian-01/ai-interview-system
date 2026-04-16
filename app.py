@@ -114,7 +114,7 @@ if "camera_active" not in st.session_state:
 
 
 st.markdown(
-    """
+    '''
     <style>
     .app-title {
         text-align: center;
@@ -144,7 +144,6 @@ st.markdown(
     margin: 0.5rem 0 1rem 0;
     font-size: 16px;
 }
-=======
     .report-card {
         border: 1px solid #334155;
         border-radius: 12px;
@@ -152,8 +151,6 @@ st.markdown(
         background: #0f172a;
         margin: 0.5rem 0 1rem 0;
     }
-
-    </style>
 
     .score-card {
         border: 1px solid #334155;
@@ -173,7 +170,7 @@ st.markdown(
         margin-bottom: 0.6rem;
     }
  </style>
-    """,
+    ''',
     unsafe_allow_html=True,
 )
 
