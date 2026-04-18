@@ -67,5 +67,6 @@ def detect_face_from_webcam(max_duration_seconds: int = 15) -> bool:
 
     finally:
         camera.release()
+        frame_placeholder.empty()
 
     return found_face

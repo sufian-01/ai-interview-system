@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import speech_recognition as sr
 import sounddevice as sd
+import numpy as np
 from scipy.io.wavfile import write
 import tempfile
 
@@ -16,6 +17,8 @@ def record_voice() -> tuple[str | None, str | None]:
     try:
         recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
         sd.wait()
+        recording = np.clip(recording, -1.0, 1.0)
+        recording = (recording * 32767).astype(np.int16)
 
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         write(temp_file.name, fs, recording)
