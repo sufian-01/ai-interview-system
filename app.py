@@ -2,7 +2,7 @@ import time
 
 import streamlit as st
 
-from ai_generator import generate_questions
+from ai_generator import evaluate_answer, generate_ai_questions
 from face_detection import detect_face_from_webcam
 from questions import get_questions
 from scoring import build_interview_report, generate_pdf_report
@@ -11,6 +11,8 @@ from voice_output import speak
 
 
 TIMER_SECONDS = 30
+ONLINE_MODE = "Online Mode (AI)"
+OFFLINE_MODE = "Offline Mode (existing system)"
 
 
 st.set_page_config(page_title="AI Interview App", page_icon="AI", layout="centered")
@@ -104,10 +106,13 @@ def _build_report_text(candidate_name, interview_type, difficulty, final_score, 
 
 def _init_session_state():
     defaults = {
+        "ai_mode": ONLINE_MODE,
+        "active_mode": ONLINE_MODE,
         "camera_active": False,
         "face_verified": False,
         "current_question_index": 0,
         "answers": {},
+        "questions": [],
         "selected_questions": [],
         "generated_questions": [],
         "interview_completed": False,
@@ -119,6 +124,10 @@ def _init_session_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def _is_online_mode():
+    return st.session_state.ai_mode == ONLINE_MODE
 
 
 def _inject_styles():
@@ -341,6 +350,22 @@ def _render_header():
     )
 
 
+def _render_ai_mode_control():
+    selected_mode = st.radio(
+        "AI Mode",
+        [ONLINE_MODE, OFFLINE_MODE],
+        index=0 if st.session_state.ai_mode == ONLINE_MODE else 1,
+        horizontal=True,
+        disabled=st.session_state.interview_started,
+    )
+    st.session_state.ai_mode = selected_mode
+
+    if _is_online_mode():
+        st.success("🟢 AI Mode ON")
+    else:
+        st.info("⚪ Offline Mode")
+
+
 def _render_candidate_meta():
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.success("Interview started.")
@@ -479,9 +504,106 @@ def _render_completion(report_data, total_questions):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def _build_ai_interview_report(questions, answers, candidate_name):
+    answer_reports = []
+    strengths = set()
+    weaknesses = set()
+
+    for idx, question in enumerate(questions):
+        answer = answers[idx] if idx < len(answers) else ""
+        evaluation = evaluate_answer(question, answer)
+        score = float(evaluation["score"])
+        feedback = str(evaluation["feedback"])
+        cleaned_answer = (answer or "").strip()
+        word_count = len(cleaned_answer.split())
+
+        if not cleaned_answer:
+            status = "Skipped"
+        elif score >= 8:
+            status = "Excellent"
+        elif score >= 6:
+            status = "Good"
+        else:
+            status = "Needs Improvement"
+
+        report = {
+            "answer": cleaned_answer,
+            "word_count": word_count,
+            "keyword_hits": {
+                "relevance": score >= 5,
+                "depth": score >= 7,
+                "examples": word_count >= 25,
+            },
+            "confidence_score": round(min(3.0, score / 10 * 3), 1),
+            "clarity": "Detailed explanation" if word_count >= 40 else "Clear explanation" if word_count >= 15 else "Short explanation",
+            "skipped": not cleaned_answer,
+            "score": score,
+            "status": status,
+            "feedback_tip": feedback,
+            "question": question,
+            "index": idx + 1,
+        }
+        answer_reports.append(report)
+
+        if status in {"Excellent", "Good"}:
+            strengths.add(f"Q{idx + 1}: {feedback}")
+        else:
+            weaknesses.add(f"Q{idx + 1}: {feedback}")
+
+    if not answer_reports:
+        return {
+            "candidate_name": candidate_name,
+            "final_score": 0.0,
+            "recommendation": "Needs Serious Practice",
+            "skipped_count": 0,
+            "strengths": [],
+            "weaknesses": ["No interview answers were available for analysis."],
+            "answer_reports": [],
+            "suggestions": [
+                "Practice concise, structured responses.",
+                "Use concrete examples from projects or work.",
+                "Explain trade-offs, reasoning, and impact.",
+            ],
+        }
+
+    skipped_count = sum(1 for report in answer_reports if report["skipped"])
+    final_score = round(
+        max(0.0, min(10.0, sum(report["score"] for report in answer_reports) / len(answer_reports))),
+        1,
+    )
+
+    if final_score >= 8:
+        recommendation = "Strong Candidate"
+    elif final_score >= 5:
+        recommendation = "Average - Needs Improvement"
+    else:
+        recommendation = "Needs Serious Practice"
+
+    if not strengths:
+        strengths.add("Completed the interview flow and submitted responses.")
+    if not weaknesses:
+        weaknesses.add("Keep practicing to sustain consistent interview quality.")
+
+    return {
+        "candidate_name": candidate_name,
+        "final_score": final_score,
+        "recommendation": recommendation,
+        "skipped_count": skipped_count,
+        "strengths": sorted(strengths),
+        "weaknesses": sorted(weaknesses),
+        "answer_reports": answer_reports,
+        "suggestions": [
+            "Structure answers with context, approach, result, and trade-offs.",
+            "Include specific examples that prove your understanding.",
+            "Use concise language while covering the key technical points.",
+        ],
+    }
+
+
 _init_session_state()
 _inject_styles()
 _render_header()
+_render_ai_mode_control()
 
 if not st.session_state.interview_started:
     st.markdown("### Camera Check")
@@ -512,20 +634,30 @@ if not st.session_state.interview_started:
         )
 
         if st.button("Generate Questions", use_container_width=True):
-            if not topic.strip():
+            if _is_online_mode() and not topic.strip():
                 st.warning("Please enter a topic before generating questions.")
             else:
-                with st.spinner("Generating interview questions with Gemini..."):
-                    try:
-                        st.session_state.generated_questions = generate_questions(topic, difficulty)
-                        st.success("AI questions generated successfully.")
-                    except Exception as exc:
-                        st.session_state.generated_questions = []
-                        st.warning(
-                            "AI question generation failed. "
-                            "The app will use default questions instead. "
-                            f"Details: {exc}"
-                        )
+                if _is_online_mode():
+                    with st.spinner("Generating questions..."):
+                        try:
+                            st.session_state.questions = generate_ai_questions(topic)
+                            st.session_state.generated_questions = st.session_state.questions
+                            st.session_state.active_mode = ONLINE_MODE
+                            st.success("AI questions generated successfully.")
+                        except Exception as exc:
+                            st.session_state.questions = get_questions(interview_type, difficulty)
+                            st.session_state.generated_questions = []
+                            st.session_state.ai_mode = OFFLINE_MODE
+                            st.session_state.active_mode = OFFLINE_MODE
+                            st.warning(
+                                "AI unavailable, switching to offline mode. "
+                                f"Details: {exc}"
+                            )
+                else:
+                    st.session_state.questions = get_questions(interview_type, difficulty)
+                    st.session_state.generated_questions = []
+                    st.session_state.active_mode = OFFLINE_MODE
+                    st.success("Offline questions loaded successfully.")
 
         if st.button("Start Interview", type="primary", use_container_width=True):
             if not st.session_state.face_verified:
@@ -539,10 +671,25 @@ if not st.session_state.interview_started:
                 st.session_state.interview_completed = False
                 st.session_state.report_data = None
 
-                if st.session_state.generated_questions:
-                    st.session_state.selected_questions = st.session_state.generated_questions
+                if st.session_state.questions:
+                    st.session_state.selected_questions = st.session_state.questions
+                elif _is_online_mode() and topic.strip():
+                    with st.spinner("Generating questions..."):
+                        try:
+                            st.session_state.questions = generate_ai_questions(topic)
+                            st.session_state.selected_questions = st.session_state.questions
+                            st.session_state.active_mode = ONLINE_MODE
+                        except Exception as exc:
+                            st.session_state.selected_questions = get_questions(interview_type, difficulty)
+                            st.session_state.ai_mode = OFFLINE_MODE
+                            st.session_state.active_mode = OFFLINE_MODE
+                            st.warning(
+                                "AI unavailable, switching to offline mode. "
+                                f"Details: {exc}"
+                            )
                 else:
                     st.session_state.selected_questions = get_questions(interview_type, difficulty)
+                    st.session_state.active_mode = OFFLINE_MODE
 
                 st.session_state.candidate_name = name.strip()
                 st.session_state.interview_type = interview_type
@@ -629,11 +776,32 @@ if st.session_state.interview_started:
                 st.session_state.answers.get(idx, "")
                 for idx in range(len(st.session_state.selected_questions))
             ]
-            st.session_state.report_data = build_interview_report(
-                st.session_state.selected_questions,
-                ordered_answers,
-                st.session_state.candidate_name,
-            )
+            if st.session_state.active_mode == ONLINE_MODE:
+                with st.spinner("Evaluating answers with AI..."):
+                    try:
+                        st.session_state.report_data = _build_ai_interview_report(
+                            st.session_state.selected_questions,
+                            ordered_answers,
+                            st.session_state.candidate_name,
+                        )
+                    except Exception as exc:
+                        st.warning(
+                            "AI unavailable, switching to offline mode. "
+                            f"Details: {exc}"
+                        )
+                        st.session_state.ai_mode = OFFLINE_MODE
+                        st.session_state.active_mode = OFFLINE_MODE
+                        st.session_state.report_data = build_interview_report(
+                            st.session_state.selected_questions,
+                            ordered_answers,
+                            st.session_state.candidate_name,
+                        )
+            else:
+                st.session_state.report_data = build_interview_report(
+                    st.session_state.selected_questions,
+                    ordered_answers,
+                    st.session_state.candidate_name,
+                )
             st.session_state.interview_completed = True
 
         _render_completion(st.session_state.report_data, total_questions)
